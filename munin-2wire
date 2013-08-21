@@ -1,0 +1,160 @@
+#!/usr/bin/env python
+# vim:ts=4:sw=4:ft=python:fileencoding=utf-8
+"""Gather traffic information off gateway router.
+
+This will connect to a 2-wire gateway router and pull down the network stats
+for munin.
+
+Available configuration options and their defaults:
+
+    [munin-2wire]
+    env.baseurl="http://192.168.1.254"
+    env.path="/xslt?PAGE=C_1_0"
+    env.tableid=3
+    env.loglevel=ERROR
+
+If data isn't loading and you verified the baseurl and path are correct (those
+two combined should load a valid web page) then you can try fudging the tableid
+to see if maybe your model has the information in another place. You can also
+try and run beautiful soup manually and attempt to determine the table id.
+
+Because of the __future__ imports used, this requires at a minimum Python 2.6.
+Python 3 is untested.
+
+Currently autoconfig isn't supported.
+
+"""
+
+
+from __future__ import absolute_import, print_function, unicode_literals
+import sys
+import os
+import traceback
+import logging
+import urllib
+import textwrap
+
+from bs4 import BeautifulSoup
+
+
+__version__ = '0.1.0'
+
+
+def get_traffic_stats(traffic_table):
+    """Given a table with traffic data, return a formatted dictionary.
+
+    Format:
+        transmit
+            bytes
+            packets
+            errors
+        receive
+            bytes
+            packets
+            errors
+    """
+    log = logging.getLogger('get_traffic_stats')
+    traffic_rows = traffic_table.find_all('tr')
+    #log.debug(traffic_rows)
+    traffic = {}
+    i = 0
+    for j in traffic_rows:
+        # Only lines interested in are 1 and 2
+        if i in [1, 2]:
+            cols = j.find_all('td')
+            traffic[cols[0].string.lower()] = {
+                'bytes': cols[1].string,
+                'packets': cols[2].string,
+                'errors': cols[3].string }
+        i = i+1
+    return traffic
+
+
+def fetch_gateway_page():
+    """Fetch the page, run through BS, and return result."""
+    log = logging.getLogger('fetch_gateway_page')
+    baseurl = os.getenv('baseurl', 'http://192.168.1.254')
+    urlpath = os.getenv('path', '/xslt?PAGE=C_1_0')
+    url = baseurl + urlpath
+    log.info('fetching url: %s' % url)
+    try:
+        fp = urllib.urlopen('http://192.168.1.254/xslt?PAGE=C_1_0')
+        if fp.getcode() != 200:
+            log.critical('Invalid response code: %s' % (fp.getcode()))
+            sys.exit(1)
+        soup = BeautifulSoup(fp.read())
+        fp.close()
+    except IOError, e:
+        log.critical('Unable to open url: %s' % (e))
+        sys.exit(1)
+    return soup
+
+
+def do_config():
+    """Called when 'config' argument specified. Prints munin config."""
+    log = logging.getLogger('do_config')
+    # CONSIDER: add down.max and up.max?
+    print(textwrap.dedent("""\
+        graph_order down up
+        graph_title gateway traffic
+        graph_args --base 1000
+        graph_vlabel bits in (-) / out (+) per ${graph_period}
+        graph_category network
+        graph_info This shows the traffic of the 2wire internet gateway.
+        down.label received
+        down.type DERIVE
+        down.graph no
+        down.cdef down,8,*
+        down.min 0
+        up.label bps
+        up.type DERIVE
+        up.negative down
+        up.cdef up,8,*
+        up.min 0
+        up.info Traffic on main interface in bits per second
+        """))
+    sys.exit(0)
+
+
+def main(argv=sys.argv):
+    """The main function."""
+    log = logging.getLogger('main')
+    if len(argv) >= 2:
+        if argv[1] == 'config':
+            do_config()
+        else:
+            log.error('Invalid argument supplied: %s', argv[0])
+    soup = fetch_gateway_page()
+    traffic_table = soup.find_all('table')[3]
+    traffic = get_traffic_stats(traffic_table)
+    log.debug(traffic)
+    print('down.value %s' % traffic['receive']['bytes'])
+    print('up.value %s' % traffic['transmit']['bytes'])
+
+
+if __name__ == "__main__":
+    # DEBUG, INFO, WARNING, ERROR, or CRITICAL
+    loglevel = getattr(logging, os.getenv('loglevel', "ERROR").upper())
+    logformat = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+    logging.basicConfig(level=loglevel, format=logformat)
+    log = logging.getLogger('ifmain')
+    try:
+        main()
+    except KeyboardInterrupt, e:
+        # Ctrl-c
+        log.error('Received keyboard interupt')
+        raise e
+    except SystemExit, e:
+        # sys.exit()
+        log.debug('Received sys.exit()')
+        raise e
+    except Exception, e:
+        log.error("ERROR, UNEXPECTED EXCEPTION")
+        log.error(str(e))
+        log.error(traceback.format_exc())
+        sys.exit(1)
+    else:
+        # Main function is done, exit cleanly
+        sys.exit(0)
+
+

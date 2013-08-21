@@ -1,0 +1,36 @@
+Munin Graphing for 2-Wire Gateway
+=================================
+
+This polls the 2-wire gateway which is a common gateway used by ISPs.  It contacts the gateway and pulls the ip traffic statistics.
+
+Requirements
+------------
+
+* Python 2.6+ (while some Python 3 `__future__` imports are used this hasn't been tested on python 3)
+* Included is beautiful soup (Again don't know status of Python 3 capability)
+
+Configuration Options
+---------------------
+
+Options that can be added to `/etc/munin/plugin-conf.d/munin-node` (or create a separate file) and what they're set to by default.
+
+    [munin-2wire]
+    env.baseurl="http://192.168.1.254"
+    env.path="/xslt?PAGE=C_1_0"
+    env.tableid=3
+    env.loglevel=ERROR
+
+With nothing specified it will use those as the defaults, resulting in the address `http://192.168.1.254/xslt?PAGE=C_1_0`. Verify that page loads in your browser and it should work. `tableid` should never need changed but who knows what a software update could do. It does involve some debugging to determine the correct table if that indeed doesn't work.
+
+Installation
+------------
+
+* Either clone or extract contents somewhere like `/etc/munin/local/munin-2wire`
+* Run `ln -s /etc/munin/local/munin-2wire/munin-2wire /etc/munin/plugins/munin-2wire`
+* Restart munin-node service, typically `service munin-node restart`
+* Check logs for errors (typically `/var/log/munin/munin-node.log`)
+
+Known working models
+--------------------
+
+* 3800HGV-B
