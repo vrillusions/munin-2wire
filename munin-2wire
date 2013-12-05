@@ -8,10 +8,10 @@ for munin.
 Available configuration options and their defaults:
 
     [munin-2wire]
-    env.baseurl="http://192.168.1.254"
-    env.path="/xslt?PAGE=C_1_0"
-    env.tableid=3
-    env.loglevel=ERROR
+    env.baseurl http://192.168.1.254
+    env.path /xslt?PAGE=C_1_0
+    env.tableid 3
+    env.loglevel ERROR
 
 If data isn't loading and you verified the baseurl and path are correct (those
 two combined should load a valid web page) then you can try fudging the tableid
@@ -37,7 +37,7 @@ import textwrap
 from bs4 import BeautifulSoup
 
 
-__version__ = '0.1.0'
+__version__ = '0.1.1'
 
 
 def get_traffic_stats(traffic_table):
@@ -78,7 +78,7 @@ def fetch_gateway_page():
     url = baseurl + urlpath
     log.info('fetching url: %s' % url)
     try:
-        fp = urllib.urlopen('http://192.168.1.254/xslt?PAGE=C_1_0')
+        fp = urllib.urlopen('{}{}'.format(baseurl, urlpath))
         if fp.getcode() != 200:
             log.critical('Invalid response code: %s' % (fp.getcode()))
             sys.exit(1)
