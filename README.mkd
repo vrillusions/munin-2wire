@@ -1,4 +1,4 @@
-Munin Graphing for 2-Wire Gateway [![Project Status](http://stillmaintained.com/vrillusions/munin-2wire.png)](http://stillmaintained.com/vrillusions/munin-2wire)
+Munin Graphing for 2-Wire Gateway
 =================================
 
 This polls the 2-wire gateway which is a common gateway used by ISPs.  It contacts the gateway and pulls the ip traffic statistics.
